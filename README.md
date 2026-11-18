@@ -6,14 +6,28 @@
 
 | پنل | اسکریپت | راهنما |
 |---|---|---|
-| [3x-ui](https://github.com/MHSanaei/3x-ui) نسخه‌ی 3.x | `install.sh` | همین بخش |
+| [3x-ui](https://github.com/MHSanaei/3x-ui) نسخه‌ی 3.x | `install-3xui.sh` | [بخش 3x-ui](#نصب-روی-3x-ui) |
 | [Rebecca](https://github.com/rebeccapanel/Rebecca) | `install-rebecca.sh` | [بخش Rebecca](#برای-پنل-rebecca) (شامل OpenVPN) |
 
 هیچ اینباند، کلاینت یا هاستی **حذف یا ویرایش نمی‌شود.**
 
-## نصب روی 3x-ui
+## نصب (یک لینک برای همه)
 
-روی سرور، با کاربر root:
+روی سرور پنل، با کاربر root. اسکریپت خودش تشخیص می‌دهد Rebecca نصب است یا 3x-ui و نصب‌کننده‌ی درست را اجرا می‌کند:
+
+</div>
+
+```bash
+bash <(curl -Ls https://raw.githubusercontent.com/pdnczone/pro-config/main/install.sh)
+```
+
+<div dir="rtl">
+
+- اگر هر دو پنل روی یک سرور باشند، می‌پرسد کدام را می‌خواهید. با `--panel-type rebecca` یا `--panel-type 3x-ui` هم می‌توانید مستقیم انتخاب کنید.
+- بقیه‌ی گزینه‌ها (مثل `--yes`، `--domain`، `--configs`) بدون تغییر به نصب‌کننده‌ی همان پنل می‌رسند.
+- اگر خواستید، فایل هر پنل را مستقیم هم می‌توانید اجرا کنید: `install-3xui.sh` یا `install-rebecca.sh`.
+
+## نصب روی 3x-ui
 
 </div>
 
@@ -129,7 +143,7 @@ bash <(curl -Ls https://raw.githubusercontent.com/pdnczone/pro-config/main/insta
 </div>
 
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/pdnczone/pro-config/main/install-rebecca.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/pdnczone/pro-config/main/install.sh)
 ```
 
 <div dir="rtl">

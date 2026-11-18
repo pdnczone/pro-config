@@ -17,7 +17,7 @@
 #  that service. Your existing users do not get any new links.
 #
 #  Install (run on the Rebecca panel server, as root):
-#    bash <(curl -Ls https://raw.githubusercontent.com/pdnczone/pro-config/main/install-rebecca.sh)
+#    bash <(curl -Ls https://raw.githubusercontent.com/pdnczone/pro-config/main/install.sh)   # detects the panel; or install-rebecca.sh directly
 #
 #  Non-interactive:
 #    bash install-rebecca.sh --yes --token <ADMIN_TOKEN> --domain my.example.com \
