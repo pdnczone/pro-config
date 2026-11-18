@@ -1,18 +1,24 @@
-# 3x-ui Pro Configs
+# pro-config
 
 <div dir="rtl">
 
-یک مجموعه کانفیگ حرفه‌ای و ضدفیلتر را **به پنل 3x-ui موجود شما اضافه می‌کند**.
+یک مجموعه کانفیگ حرفه‌ای و ضدفیلتر را **به پنل موجود شما اضافه می‌کند**. دو پنل پشتیبانی می‌شود:
+
+| پنل | اسکریپت | راهنما |
+|---|---|---|
+| [3x-ui](https://github.com/MHSanaei/3x-ui) نسخه‌ی 3.x | `install.sh` | همین بخش |
+| [Rebecca](https://github.com/rebeccapanel/Rebecca) | `install-rebecca.sh` | [بخش Rebecca](#برای-پنل-rebecca) (شامل OpenVPN) |
+
 هیچ اینباند، کلاینت یا هاستی **حذف یا ویرایش نمی‌شود.**
 
-## نصب
+## نصب روی 3x-ui
 
 روی سرور، با کاربر root:
 
 </div>
 
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/pdnczone/3x-ui-pro-configs/main/install.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/pdnczone/pro-config/main/install.sh)
 ```
 
 <div dir="rtl">
@@ -82,7 +88,7 @@ bash <(curl -Ls https://raw.githubusercontent.com/pdnczone/3x-ui-pro-configs/mai
 </div>
 
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/pdnczone/3x-ui-pro-configs/main/install.sh) \
+bash <(curl -Ls https://raw.githubusercontent.com/pdnczone/pro-config/main/install.sh) \
   --yes --token <API_TOKEN> --domain my.example.com --cdn cdn.example.com --configs all --clean 20
 ```
 
@@ -109,6 +115,44 @@ bash <(curl -Ls https://raw.githubusercontent.com/pdnczone/3x-ui-pro-configs/mai
 - Xray-core نسخه‌ی **26.x**. برای FinalMask، Hysteria2 و PQ لازم است. اگر نباشد، این کانفیگ‌ها خودکار رد می‌شوند.
 - Ubuntu یا Debian، با `python3`، `curl` و `openssl`.
 - **فایروال:** پورت‌هایی که اسکریپت در پایان نشان می‌دهد را در فایروال سرویس ابری باز کنید (برای IPv4 و IPv6، و UDP برای Hysteria2).
+
+</div>
+
+---
+
+<div dir="rtl">
+
+## برای پنل Rebecca
+
+همین کانفیگ‌ها را می‌شود روی پنل [Rebecca](https://github.com/rebeccapanel/Rebecca) هم ساخت. اسکریپت جدا است و چیزی از اینباند، هاست، سرویس و کاربر فعلی شما را حذف یا ویرایش **نمی‌کند**.
+
+</div>
+
+```bash
+bash <(curl -Ls https://raw.githubusercontent.com/pdnczone/pro-config/main/install-rebecca.sh)
+```
+
+<div dir="rtl">
+
+روی سرور پنل، با کاربر root اجرا کنید. اسکریپت نام‌کاربری و رمز یک ادمین `full_access` یا `sudo` را می‌پرسد (یا با `--token` توکن بدهید).
+
+**چه می‌سازد:** اینباندهای جدید با تگ `pro-*`، هاست‌های همان‌ها، **یک سرویس جدید** که فقط همین هاست‌ها را دارد و **یک کاربر جدید** در آن سرویس. کاربران فعلی لینک تازه‌ای نمی‌گیرند.
+
+| کانفیگ | امنیت |
+|---|---|
+| ⚡ Reality Vision / 🌀 XHTTP / 🔷 gRPC | `maxTimeDiff`، سه Short ID تصادفی، و امضای پساکوانتومی **ML-DSA-65** (با `--no-mldsa` خاموش می‌شود) |
+| 🔐 TLS Vision، 🚄 Hysteria2 | فقط TLS 1.3، بدون پاسخ به SNI ناشناس |
+| 🧬 PQ Sudoku | VLESS با احراز هویت **ML-KEM-768** + FinalMask Sudoku |
+| 🌐 CDN WS / HTTPUpgrade / XHTTP | پشت Cloudflare، با Fragment و آی‌پی‌های تمیز |
+| 🛡 **OpenVPN UDP / TCP** | `tls-crypt`، AES-256-GCM، TLS 1.3 در کلاینت، گواهی EC P-384 با CA اختصاصی (کلید CA دور ریخته می‌شود) |
+
+OpenVPN را فقط زمانی انتخاب کنید که کلاینتی غیر از Xray دارید؛ فیلترینگ‌های پیشرفته آن را راحت‌تر از Reality تشخیص می‌دهند. نود در اولین استفاده خودش OpenVPN را نصب می‌کند (چند دقیقه).
+
+**نکته‌ها**
+- کانفیگ‌ها در کانفیگ مشترک `master` ساخته می‌شوند و Xray نود باید روی **همین سرور** باشد.
+- TLS، CDN و Hysteria2 دامنه‌ی مستقیم با گواهی می‌خواهند. بدون دامنه فقط Reality، PQ و OpenVPN ساخته می‌شود.
+- Shadowsocks-2022 در این نسخه نیست (Rebecca نمی‌تواند در زمان اجرا به آن کاربر اضافه کند).
+- دیتابیس MySQL بکاپ خودکار ندارد؛ هر چه ساخته می‌شود جدید است و از داخل پنل پاک می‌شود.
 
 </div>
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-#  3x-ui Pro Configs  —  https://github.com/pdnczone/3x-ui-pro-configs
+#  pro-config  —  https://github.com/pdnczone/pro-config
 #
 #  Adds a professional, censorship-resistant set of configs to an EXISTING
 #  3x-ui panel: REALITY (Vision / XHTTP / gRPC), TLS (Vision / XHTTP),
@@ -11,7 +11,7 @@
 #  ADD-ONLY: never deletes or edits your existing inbounds, clients or hosts.
 #
 #  Install:
-#    bash <(curl -Ls https://raw.githubusercontent.com/pdnczone/3x-ui-pro-configs/main/install.sh)
+#    bash <(curl -Ls https://raw.githubusercontent.com/pdnczone/pro-config/main/install.sh)
 #
 #  Non-interactive:
 #    bash install.sh --yes --domain my.example.com --cdn cdn.example.com \
@@ -29,7 +29,7 @@
 set -euo pipefail
 [ "$(id -u)" = "0" ] || { echo "Please run as root (sudo -i)."; exit 1; }
 for b in python3 curl openssl ss; do command -v "$b" >/dev/null || { echo "Missing: $b  (apt install -y $b)"; exit 1; }; done
-REPO_RAW="https://raw.githubusercontent.com/pdnczone/3x-ui-pro-configs/main"
+REPO_RAW="https://raw.githubusercontent.com/pdnczone/pro-config/main"
 TMPPY=$(mktemp /tmp/xui-pro.XXXXXX.py)
 trap 'rm -f "$TMPPY"' EXIT
 cat > "$TMPPY" <<'PYEOF'
@@ -72,7 +72,7 @@ def yes(q, default=True):
 
 print(f"""{B}{C}
    ┌──────────────────────────────────────────────┐
-   │   3x-ui Pro Configs  ·  add-only installer   │
+   │      pro-config  ·  add-only installer       │
    └──────────────────────────────────────────────┘{N}""")
 
 # =========================================================================== panel
@@ -569,7 +569,7 @@ while EMAIL in emails:
 SUBID = "".join(secrets.choice(string.ascii_lowercase + string.digits) for _ in range(16))
 CLIENT = {"email": EMAIL, "subId": SUBID, "flow": "xtls-rprx-vision",
           "password": base64.b64encode(secrets.token_bytes(32)).decode(),   # also a valid SS-2022 key
-          "totalGB": 0, "expiryTime": 0, "limitIp": 0, "limitHwid": 0, "enable": True, "tgId": 0, "comment": "3x-ui-pro-configs"}
+          "totalGB": 0, "expiryTime": 0, "limitIp": 0, "limitHwid": 0, "enable": True, "tgId": 0, "comment": "pro-config"}
 def restart():
     api("/panel/api/server/restartXrayService", post=True)
 def xray_ok(pt, udp):
