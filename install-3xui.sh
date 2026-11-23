@@ -83,10 +83,11 @@ if os.path.exists("/etc/x-ui/install-result.env"):
         if "=" in l:
             k, v = l.strip().split("=", 1); env[k] = v
 raw = re.sub(r"\x1b\[[0-9;]*m", "", sh("x-ui settings 2>/dev/null"))
-pport = env.get("XUI_PANEL_PORT") or (re.search(r"port:\s*(\d+)", raw) or [None, None])[1]
-base = env.get("XUI_WEB_BASE_PATH") or (re.search(r"webBasePath:\s*(\S+)", raw) or [None, ""])[1]
+# live `x-ui settings` wins; install-result.env can be stale after the user changes port/path
+pport = (re.search(r"port:\s*(\d+)", raw) or [None, None])[1] or env.get("XUI_PANEL_PORT")
+base = (re.search(r"webBasePath:\s*(\S+)", raw) or [None, ""])[1] or env.get("XUI_WEB_BASE_PATH", "")
 base = "/" + base.strip("/") if base and base.strip("/") else ""
-access = env.get("XUI_ACCESS_URL") or (re.search(r"Access URL:\s*(\S+)", raw) or [None, ""])[1]
+access = (re.search(r"Access URL:\s*(\S+)", raw) or [None, ""])[1] or env.get("XUI_ACCESS_URL", "")
 if not pport:
     die("3x-ui was not found on this server. Install 3x-ui v3.x first.")
 if access.startswith(("http://", "https://")):
@@ -98,21 +99,33 @@ PANEL = f"{scheme}://{phost}:{pport}{base}"
 RESOLVE = ["--resolve", f"{phost}:{pport}:127.0.0.1"] if re.search(r"[a-zA-Z]", phost) else []
 if not RESOLVE:
     PANEL = f"{scheme}://127.0.0.1:{pport}{base}"
-TOKEN = A.token or env.get("XUI_API_TOKEN", "")
+TOKEN = A.token or env.get("XUI_API_TOKEN", "")  # may be stale; re-asked below if it fails
 COOKIE = "/tmp/.xui-pro.cookie"
 TEMP_TOKEN_ID = None
 
-def api(path, body=None, post=False, timeout=40):
-    c = ["curl", "-sk", "-m", str(timeout)] + RESOLVE + ["-H", f"Authorization: Bearer {TOKEN}"]
+LAST = {"code": "", "raw": ""}
+def _call(path, body, post, timeout):
+    c = ["curl", "-sk", "-m", str(timeout), "-w", "\n%{http_code}"] + RESOLVE + ["-H", f"Authorization: Bearer {TOKEN}"]
     if body is not None:
         c += ["-H", "Content-Type: application/json", "-X", "POST", "-d", json.dumps(body)]
     elif post:
         c += ["-X", "POST"]
-    out = subprocess.run(c + [PANEL + path], capture_output=True, text=True).stdout
+    r = subprocess.run(c + [PANEL + path], capture_output=True, text=True)
+    out, _, code = r.stdout.rpartition("\n")
+    LAST.update(code=code, raw=out[:200] or r.stderr[:200])
     try:
         return json.loads(out)
     except Exception:
         return {"success": False, "msg": out[:200]}
+
+def api(path, body=None, post=False, timeout=40):
+    res = _call(path, body, post, timeout)
+    if not res.get("success") and body is None:
+        # some 3x-ui builds only accept the other HTTP method on the same route
+        alt = _call(path, None, not post, timeout)
+        if alt.get("success"):
+            return alt
+    return res
 
 def login_and_mint_token(u, pw, otp=""):
     global TOKEN, TEMP_TOKEN_ID
@@ -151,7 +164,15 @@ if not TOKEN or not api("/panel/api/inbounds/list").get("success"):
     else:
         login_and_mint_token(ask("  Panel username"), ask("  Panel password"), ask("  2FA code (Enter if none)"))
 if not api("/panel/api/inbounds/list").get("success"):
-    die("Cannot talk to the panel API at", PANEL)
+    # maybe the panel speaks the other scheme (http <-> https)
+    _orig = PANEL
+    PANEL = ("http" if PANEL.startswith("https") else "https") + PANEL[PANEL.index("://"):]
+    if not api("/panel/api/inbounds/list").get("success"):
+        PANEL = _orig
+        die("Cannot talk to the panel API at", PANEL,
+            f"\n  HTTP {LAST['code'] or 'no response'}: {LAST['raw'] or '(empty)'}"
+            "\n  401/403 = wrong or revoked token (create a new one in Settings > API Tokens)"
+            "\n  404 = wrong base path / panel too old, 000/empty = port or scheme not reachable")
 for need in ("/panel/api/clients/list", "/panel/api/hosts/list"):
     if not api(need).get("success"):
         die("Your 3x-ui is too old (no Clients/Hosts pages). Update 3x-ui to v3.x and run again.")
@@ -265,15 +286,15 @@ if CERT:
 # =========================================================================== 3. configs
 CATALOG = [
     # key, name, needs, description
-    ("rv", "⚡ Reality Vision", None, "fastest + stealthiest, main config"),
-    ("rx", "🌀 Reality XHTTP", None, "REALITY over XHTTP, padding"),
-    ("rg", "🔷 Reality gRPC", None, "REALITY over gRPC"),
-    ("tv", "🔐 TLS Vision", "tls", "real certificate, + Fragment and IPv6 variants"),
-    ("tx", "🛰 TLS XHTTP", "tls", "direct + CDN capable"),
-    ("ws", "🌐 CDN WS", "cdn", "Cloudflare WebSocket + clean IPs"),
-    ("hu", "🔗 CDN HTTPUpgrade", "cdn", "Cloudflare HTTPUpgrade"),
+    ("rv", "⚡ Reality · Vision", None, "fastest + stealthiest, main config"),
+    ("rx", "🌀 Reality · XHTTP", None, "REALITY over XHTTP, padding"),
+    ("rg", "🔷 Reality · gRPC", None, "REALITY over gRPC"),
+    ("tv", "🔐 TLS · Vision", "tls", "real certificate, + Fragment and IPv6 variants"),
+    ("tx", "🛰 TLS · XHTTP", "tls", "direct + CDN capable"),
+    ("ws", "🌐 CDN · WebSocket", "cdn", "Cloudflare WebSocket + clean IPs"),
+    ("hu", "🔗 CDN · HTTPUpgrade", "cdn", "Cloudflare HTTPUpgrade"),
     ("hy", "🚄 Hysteria2", "tls", "UDP/QUIC, Salamander FinalMask (needs UDP open)"),
-    ("pq", "🧬 PQ Sudoku", None, "post-quantum VLESS + Sudoku FinalMask (beta, Xray 26 clients)"),
+    ("pq", "🧬 Post-Quantum · Sudoku", None, "post-quantum VLESS + Sudoku FinalMask (beta, Xray 26 clients)"),
     ("ss", "🛟 Shadowsocks-2022", None, "simple backup"),
 ]
 avail = [c for c in CATALOG if c[2] is None or (c[2] == "tls" and CERT) or (c[2] == "cdn" and CDN)]
@@ -534,26 +555,26 @@ BUILD = {
                                     "network": "tcp,udp", "clients": [], "ivCheck": False},
                                    {"network": "tcp", "security": "none", "externalProxy": [], **TCP})),
 }
-REMARK = {"rv": "⚡ Reality Vision", "rx": "🌀 Reality XHTTP", "rg": "🔷 Reality gRPC", "tv": "🔐 TLS Vision",
-          "tx": "🛰 TLS XHTTP", "ws": "🌐 TLS WS", "hu": "🔗 TLS HTTPUpgrade", "hy": "🚄 Hysteria2 · UDP",
-          "pq": "🧬 PQ Sudoku · Beta", "ss": "🛟 Shadowsocks · Backup"}
+REMARK = {"rv": "⚡ Reality · Vision", "rx": "🌀 Reality · XHTTP", "rg": "🔷 Reality · gRPC", "tv": "🔐 TLS · Vision",
+          "tx": "🛰 TLS · XHTTP", "ws": "🌐 CDN · WebSocket", "hu": "🔗 CDN · HTTPUpgrade", "hy": "🚄 Hysteria2 · UDP",
+          "pq": "🧬 Post-Quantum · Sudoku", "ss": "🛟 Shadowsocks · Backup"}
 def cdn_host(name, addr, key):
     cp = PLAN[key].get("client_port", 0)
     return (name, addr, {"sni": CDN, "hostHeader": CDN, "finalMask": FRAG, **({"port": cp} if cp else {})})
 def HOSTS(key):
-    v6 = lambda n, ex={}: [(f"6️⃣ {n} · IPv6", PUB6, ex)] if PUB6 else []
-    if key == "rv": return [("⚡ Reality Vision · Main", ADDR, {})] + v6("Reality Vision")
-    if key == "rx": return [("🌀 Reality XHTTP", ADDR, {})] + v6("Reality XHTTP")
-    if key == "rg": return [("🔷 Reality gRPC", ADDR, {})]
-    if key == "tv": return [("🔐 TLS Vision", ADDR, {"sni": DOMAIN}),
-                            ("🧩 TLS Vision · Fragment", ADDR, {"sni": DOMAIN, "finalMask": FRAG})] + v6("TLS Vision", {"sni": DOMAIN})
+    v6 = lambda n, ex={}: [(f"{n} · IPv6", PUB6, ex)] if PUB6 else []
+    if key == "rv": return [("⚡ Reality · Vision", ADDR, {})] + v6("⚡ Reality · Vision")
+    if key == "rx": return [("🌀 Reality · XHTTP", ADDR, {})] + v6("🌀 Reality · XHTTP")
+    if key == "rg": return [("🔷 Reality · gRPC", ADDR, {})]
+    if key == "tv": return [("🔐 TLS · Vision", ADDR, {"sni": DOMAIN}),
+                            ("🧩 TLS · Vision · Fragment", ADDR, {"sni": DOMAIN, "finalMask": FRAG})] + v6("🔐 TLS · Vision", {"sni": DOMAIN})
     if key == "tx":
-        h = [] if PLAN["tx"].get("origin_rule") else [("🛰 TLS XHTTP", ADDR, {"sni": DOMAIN, "hostHeader": DOMAIN})]
-        return h + ([cdn_host("☁️ CDN XHTTP · Fragment", CDN, "tx")] if CDN else [])
-    if key == "ws": return [cdn_host("☁️ CDN WS · Fragment", CDN, "ws")]
-    if key == "hu": return [cdn_host("☁️ CDN HTTPUpgrade · Fragment", CDN, "hu")]
+        h = [] if PLAN["tx"].get("origin_rule") else [("🛰 TLS · XHTTP", ADDR, {"sni": DOMAIN, "hostHeader": DOMAIN})]
+        return h + ([cdn_host("☁️ CDN · XHTTP · Fragment", CDN, "tx")] if CDN else [])
+    if key == "ws": return [cdn_host("☁️ CDN · WebSocket · Fragment", CDN, "ws")]
+    if key == "hu": return [cdn_host("☁️ CDN · HTTPUpgrade · Fragment", CDN, "hu")]
     if key == "hy": return [("🚄 Hysteria2 · UDP", ADDR, {"sni": DOMAIN})]
-    if key == "pq": return [("🧬 PQ Sudoku · Beta", ADDR, {})]
+    if key == "pq": return [("🧬 Post-Quantum · Sudoku", ADDR, {})]
     if key == "ss": return [("🛟 Shadowsocks · Backup", ADDR, {})]
     return []
 
@@ -639,7 +660,7 @@ for order, (key, iid) in enumerate(added):
     hosts = HOSTS(key)
     if key == clean_key and CLEAN:
         tag = {"ws": "WS", "hu": "HU", "tx": "XHTTP"}[key]
-        hosts += [cdn_host(f"🧊 Clean {i:02d} · {a}", a, key) for i, a in enumerate(CLEAN, 1)]
+        hosts += [cdn_host(f"🧊 CDN · Clean {i:02d} · {a}", a, key) for i, a in enumerate(CLEAN, 1)]
     if not use_hosts:
         hosts = [h for h in hosts if h[1] == CDN or h[1] in CLEAN] if key in ("ws", "hu") else []
     for i, (rem, addr, extra) in enumerate(hosts):
