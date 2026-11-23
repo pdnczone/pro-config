@@ -450,17 +450,28 @@ if CLEAN_N and CDN:
     if not cdn_port and any(PLAN.get(k, {}).get("origin_rule") for k in ("ws", "hu", "tx")):
         cdn_port = 443          # Origin-Rule mode: clients reach Cloudflare on 443
     if cdn_port:
-        def via_cf(a):
+        def via_cf(a, port):
             ip = a if re.match(r"^[\d.]+$", a) else (next((x for x in ips_of(a) if ":" not in x), "") or "")
             if not ip or not is_cf(ip):
                 return None
-            r = sh(f"curl -s -o /dev/null -m6 -w '%{{http_code}} %{{time_connect}}' --resolve {CDN}:{cdn_port}:{ip} "
-                   f"https://{CDN}:{cdn_port}/", 10)
+            r = sh(f"curl -s -o /dev/null -m6 -w '%{{http_code}} %{{time_connect}}' --resolve {CDN}:{port}:{ip} "
+                   f"https://{CDN}:{port}/", 10)
             code, _, t = r.partition(" ")
             return (a, float(t or 9)) if code and code != "000" else None
         info(f"checking {len(cand)} Cloudflare clean IPs / domains against {CDN} ...")
         with cfut.ThreadPoolExecutor(16) as ex:
-            res = [r for r in ex.map(via_cf, cand) if r]
+            res = [r for r in ex.map(lambda a: via_cf(a, cdn_port), cand) if r]
+            if not res and cdn_port != 443:
+                # some hosts block outbound to Cloudflare's non-443 ports; the clients' network is what matters
+                warn(f"this server cannot reach Cloudflare on port {cdn_port}; testing on 443 instead")
+                res = [r for r in ex.map(lambda a: via_cf(a, 443), cand) if r]
+            if not res:
+                warn("could not probe Cloudflare from this server; keeping every address that belongs to Cloudflare")
+                def is_cf_addr(a):
+                    ip = a if re.match(r"^[\d.]+$", a) else (next((x for x in ips_of(a) if ":" not in x), "") or "")
+                    return (a, 9.0) if ip and is_cf(ip) else None
+                res = [r for r in ex.map(is_cf_addr, cand) if r]
+        res.sort(key=lambda r: r[1])
         CLEAN = [a for a, _ in res][:CLEAN_N]
         info(f"{len(CLEAN)} clean addresses ready")
 
